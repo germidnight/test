@@ -25,35 +25,31 @@ struct Query {
 
 istream &operator>>(istream &is, Query &q) {
     // Реализуйте эту функцию
-    string query_string, query_part;
+    string line_feed, query_part;
 
     /* Предварительная очиска мусора от предыдущей итерации */
     q.stops.clear();
 
-    getline(is, query_string);
-    if (query_string.empty()) {
-        getline(is, query_string);
-    }
-    istringstream query(query_string);
+    getline(is, line_feed);
 
-    query >> query_part;
+    is >> query_part;
     if (query_part == "NEW_BUS"s) {
         int len;
         string str;
 
         q.type = QueryType::NewBus;
-        query >> q.bus;
-        query >> len;
+        is >> q.bus;
+        is >> len;
         for (int i = 0; i < len; ++i) {
-            query >> str;
+            is >> str;
             q.stops.push_back(str);
         }
     } else if (query_part == "BUSES_FOR_STOP"s) {
         q.type = QueryType::BusesForStop;
-        query >> q.stop;
+        is >> q.stop;
     } else if (query_part == "STOPS_FOR_BUS"s) {
         q.type = QueryType::StopsForBus;
-        query >> q.bus;
+        is >> q.bus;
     } else if (query_part == "ALL_BUSES"s) {
         q.type = QueryType::AllBuses;
     }
