@@ -46,7 +46,7 @@ public:
         try {
             for (int i = 1; i <= num_tentacles; ++i) {
                 t = new Tentacle(i);     // Может выбросить исключение bad_alloc
-                tentacles_.push_back(t); // Может выбросить исключение bad_alloc
+                ordinary_tent.push_back(t); // Может выбросить исключение bad_alloc
 
                 // Обнуляем указатель на щупальце, которое уже добавили в tentacles_,
                 // чтобы не удалить его в обработчике catch повторно
@@ -54,7 +54,7 @@ public:
             }
         } catch (const std::bad_alloc &) {
             // Удаляем щупальца, которые успели попасть в контейнер tentacles_
-            Cleanup();
+            //Cleanup();
             // Удаляем щупальце, которое создали, но не добавили в tentacles_
             delete t;
             // Конструктор не смог создать осьминога с восемью щупальцами,
@@ -62,9 +62,9 @@ public:
             // throw без параметров внутри catch выполняет ПЕРЕВЫБРОС пойманного исключения
             throw;
         }*/
-        for(int i = 1; i <= num_tentacles; ++i) {
+        for (int i = 1; i <= num_tentacles; ++i) {
             ScopedPtr<Tentacle> t_ptr(new Tentacle(i));
-            tentacles_.GetItems().push_back(new Tentacle(i));
+            tentacles_.GetItems().push_back(t_ptr.GetRawPtr());
         }
     }
 
@@ -82,9 +82,9 @@ public:
     Tentacle& AddTentacle() {
         //Реализуйте добавление щупальца самостоятельно
         const int t_count = GetTentacleCount() + 1;
-        ScopedPtr<Tentacle *> t_ptr(new Tentacle(t_count));
-        tentacles_.GetItems().push_back(t_ptr);
-        return *(t_ptr->GetRawPtr());
+        ScopedPtr<Tentacle> t_ptr(new Tentacle(t_count));
+        tentacles_.GetItems().push_back(t_ptr.GetRawPtr());
+        return *t_ptr.GetRawPtr();
     }
 
     int GetTentacleCount() const noexcept {
@@ -94,13 +94,13 @@ public:
 
     const Tentacle &GetTentacle(size_t index) const {
         //return *tentacles_.at(index);
-        ScopedPtr<Tentacle *> t_ptr(tentacles_.GetItems().at(index));
-        return **(t_ptr.GetRawPtr());
+        ScopedPtr<Tentacle> t_ptr(tentacles_.GetItems().at(index));
+        return *(t_ptr.GetRawPtr());
     }
     Tentacle &GetTentacle(size_t index) {
         //return *tentacles_.at(index);
-        ScopedPtr<Tentacle *> t_ptr(tentacles_.GetItems().at(index));
-        return **(t_ptr.GetRawPtr());
+        ScopedPtr<Tentacle> t_ptr(tentacles_.GetItems().at(index));
+        return *(t_ptr.GetRawPtr());
     }
 
 private:
@@ -114,6 +114,5 @@ private:
     }*/
 
     // Вектор хранит указатели на щупальца. Сами объекты щупалец находятся в куче
-    //std::vector<Tentacle *> tentacles_;
-    PtrVector<Tentacle *> tentacles_;
+    PtrVector<Tentacle> tentacles_;
 };

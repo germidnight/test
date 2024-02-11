@@ -24,13 +24,19 @@ int main() {
         Octopus default_octopus;
         assert(default_octopus.GetTentacleCount() == 8);
 
+            std::cout << "1 По умолчанию осьминог имеет 8 щупалец"s << std::endl;
+
         // Осьминог может иметь отличное от 8 количество щупалец
         Octopus quadropus(4);
         assert(quadropus.GetTentacleCount() == 4);
 
+            std::cout << "2 Осьминог может иметь отличное от 8 количество щупалец"s << std::endl;
+
         // И даже вообще не иметь щупалец
         Octopus coloboque(0);
         assert(coloboque.GetTentacleCount() == 0);
+
+            std::cout << "3 И даже вообще не иметь щупалец"s << std::endl;
     }
 
     // Осьминогу можно добавлять щупальца
@@ -39,17 +45,26 @@ int main() {
         Tentacle *t0 = &octopus.GetTentacle(0);
         Tentacle *t1 = &octopus.AddTentacle();
         assert(octopus.GetTentacleCount() == 2);
+
+            std::cout << "4 Осьминогу можно добавлять щупальца"s << std::endl;
+
         Tentacle *t2 = &octopus.AddTentacle();
         assert(octopus.GetTentacleCount() == 3);
+
+            std::cout << "5 Осьминогу можно добавлять щупальца"s << std::endl;
 
         // После добавления щупалец ранее созданные щупальца не меняют своих адресов
         assert(&octopus.GetTentacle(0) == t0);
         assert(&octopus.GetTentacle(1) == t1);
         assert(&octopus.GetTentacle(2) == t2);
 
+            std::cout << "6 После добавления щупалец ранее созданные щупальца не меняют своих адресов 1"s << std::endl;
+
         for (int i = 0; i < octopus.GetTentacleCount(); ++i) {
             assert(octopus.GetTentacle(i).GetId() == i + 1);
         }
+
+            std::cout << "7 После добавления щупалец ранее созданные щупальца не меняют своих адресов 2"s << std::endl;
     }
 
     // Осьминоги могут прицепляться к щупальцам друг друга
