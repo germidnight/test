@@ -45,8 +45,8 @@ public:
     std::string GetText() const; // получить текущее содержимое текстового редактора
 private:
     std::list<char> text_;
-    std::list<char>::iterator cursor_ = text_.begin();
     std::list<char> exch_buf_;
+    std::list<char>::iterator cursor_ = text_.begin();
 };
 
 void Editor::Left() {
@@ -62,8 +62,8 @@ void Editor::Right() {
 }
 
 void Editor::Insert(char token) {
-    text_.insert(cursor_, token);
     Right();
+    text_.insert(cursor_, token);
 }
 
 void Editor::Cut(size_t tokens) {
@@ -78,14 +78,16 @@ void Editor::Cut(size_t tokens) {
 
 void Editor::Copy(size_t tokens) {
     exch_buf_.clear();
-    for (size_t i = 0; (i != tokens) && (cursor_ != text_.end()); ++i) {
-        exch_buf_.push_back(*cursor_);
-        Right();
+    auto iter = cursor_;
+    for (size_t i = 0; (i != tokens) && (iter != text_.end()); ++i, ++iter) {
+        exch_buf_.push_back(*iter);
     }
 }
 
 void Editor::Paste() {
-    text_.insert(cursor_, exch_buf_.begin(), exch_buf_.end());
+    for(auto iter = exch_buf_.begin(); iter != exch_buf_.end(); ++iter) {
+        Editor::Insert(*iter);
+    }
 }
 
 std::string Editor::GetText() const {
