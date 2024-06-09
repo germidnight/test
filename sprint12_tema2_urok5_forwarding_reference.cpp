@@ -33,14 +33,13 @@ public:
 template <typename T>
 class AnyStorage : public AnyStorageBase {
 public:
-    template <typename Type>
-    AnyStorage(Type&& object) {
-        value_ = std::forward<Type>(object);
-    }
+    AnyStorage(T object) : value_(object) {}
 
     void Print(std::ostream& out) const override {
         out << value_;
     }
+
+    ~AnyStorage() = default;
 
 private:
     T value_;
