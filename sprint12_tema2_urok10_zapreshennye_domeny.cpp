@@ -96,13 +96,16 @@ public:
     // разработайте метод IsForbidden, возвращающий true, если домен запрещён
     bool IsForbidden(const Domain& domain_candidate) const {
         if (!forbidden_domains_.empty()) {
-            auto it = std::find_if(forbidden_domains_.begin(), forbidden_domains_.end(), [domain_candidate](const Domain& domain) {
+            auto upper_limit = std::upper_bound(forbidden_domains_.begin(), forbidden_domains_.end(), domain_candidate);
+
+            auto r_begin = std::reverse_iterator(upper_limit);
+            auto r_end = std::reverse_iterator(forbidden_domains_.begin());
+            auto it = std::find_if(r_begin, r_end, [domain_candidate](const Domain &domain) {
                             return domain.IsSubdomain(domain_candidate);
                         });
-            if (it != forbidden_domains_.end()) {
+            if (it != r_end) {
                 return true;
             }
-
         }
         return false;
     }
