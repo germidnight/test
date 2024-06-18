@@ -7,6 +7,9 @@
 #include <cstdint>
 
 struct Day {
+    double ComputeIncome() {
+        return income - spend;
+    }
     double income = 0.;
     double spend = 0.;
 };
@@ -39,12 +42,17 @@ public:
         : tax_(tax) {
     }
     /*CombineWith меняет поле BulkOperation, то есть данные внутри самой операции (BulkMoneyAdder и BulkTaxApplier),
-    реализуя механизм «проталкивания» вниз*/
+     * реализуя механизм «проталкивания» вниз
+     * 1) переумножить проценты;
+     * 2) учесть траты (просто сложить);
+     * 3) учесть зачисления (зачисление умножить на процент и прибавить другое зачисление)*/
     void CombineWith(const BulkLinearUpdater &other) {
         tax_.factor *= other.tax_.factor;
         add_.delta = add_.delta * tax_.factor + other.add_.delta;
     }
-    /*Collapse меняет поле Data путем использования подготовленных данных внутри операции.*/
+    /*Collapse меняет поле Data путем использования подготовленных данных внутри операции.
+     * Вызов Collapse - выход из рекурсии.
+     * Складывает все сегменты вместе*/
     Day Collapse(Day origin, IndexSegment segment) const {
         return origin * tax_.factor + add_.delta * static_cast<double>(segment.length());
     }

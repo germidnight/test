@@ -7,7 +7,8 @@ namespace queries {
     public:
         using ComputeQuery::ComputeQuery;
         ReadResult Process(const BudgetManager &budget) const override {
-            return {budget.ComputeSum(GetFrom(), GetTo())};
+            auto res = budget.ComputeSum(GetFrom(), GetTo());
+            return {res};
         }
 
         class Factory : public QueryFactory {
@@ -44,30 +45,6 @@ namespace queries {
         double amount_;
     };
 
-    class PayTax : public ModifyQuery {
-    public:
-        using ModifyQuery::ModifyQuery;
-
-        PayTax(Date from, Date to, int tax)
-            : ModifyQuery(from, to), tax_(tax) {
-        }
-
-        void Process(BudgetManager &budget) const override {
-            budget.AddBulkOperation(GetFrom(), GetTo(), BulkTaxApplier{static_cast<double>(100 - tax_) / 100.0}); // тут устанавливаем величину налога
-        }
-
-        class Factory : public QueryFactory {
-        public:
-            std::unique_ptr<Query> Construct(std::string_view config) const override {
-                auto parts = Split(config, ' ');
-                return std::make_unique<PayTax>(Date::FromString(parts[0]), Date::FromString(parts[1]), std::stoi(std::string(parts[2])));
-            }
-        };
-
-    private:
-        int tax_;
-    };
-
     class Spend : public ModifyQuery {
     public:
         Spend(Date from, Date to, double amount)
@@ -91,6 +68,30 @@ namespace queries {
 
     private:
         double amount_;
+    };
+
+    class PayTax : public ModifyQuery {
+    public:
+        using ModifyQuery::ModifyQuery;
+
+        PayTax(Date from, Date to, int tax)
+            : ModifyQuery(from, to), tax_(tax) {
+        }
+
+        void Process(BudgetManager &budget) const override {
+            budget.AddBulkOperation(GetFrom(), GetTo(), BulkTaxApplier{static_cast<double>(100 - tax_) / 100.0}); // тут устанавливаем величину налога
+        }
+
+        class Factory : public QueryFactory {
+        public:
+            std::unique_ptr<Query> Construct(std::string_view config) const override {
+                auto parts = Split(config, ' ');
+                return std::make_unique<PayTax>(Date::FromString(parts[0]), Date::FromString(parts[1]), std::stoi(std::string(parts[2])));
+            }
+        };
+
+    private:
+        int tax_;
     };
 
 } // namespace queries
