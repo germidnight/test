@@ -6,13 +6,16 @@
 
 class Date {
 public:
-    Date() {}
+    Date() {
+    }
     Date(int year, int month, int day)
-        : year_(year), month_(month), day_(day) {
+        : year_(year)
+        , month_(month)
+        , day_(day) {
     }
 
     // тут правильно использовать string_view, но regex его пока не поддерживает
-    static Date FromString(const std::string &str) {
+    static Date FromString(const std::string& str) {
         static const std::regex date_regex(R"/(([0-9]{4})-([0-9]{2})-([0-9]{2}))/");
         std::smatch m;
 

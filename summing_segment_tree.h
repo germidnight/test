@@ -1,9 +1,4 @@
 #pragma once
-/*
- * Вам дано эффективное решение задачи о личном бюджете.
- * Для хранения операций оно использует древовидную структуру данных, позволяющую избежать модификации каждого дня для длинных интервалов.
- */
-
 #include <memory>
 #include <utility>
 
@@ -39,7 +34,7 @@ public:
         return this->TraverseWithQuery(root_, segment, ComputeSumVisitor{});
     }
 
-    void AddBulkOperation(IndexSegment segment, const BulkOperation &operation) {
+    void AddBulkOperation(IndexSegment segment, const BulkOperation& operation) {
         this->TraverseWithQuery(root_, segment, AddBulkOperationVisitor{operation});
     }
 
@@ -68,7 +63,7 @@ private:
     }
 
     template <typename Visitor>
-    static typename Visitor::ResultType TraverseWithQuery(const NodeHolder &node, IndexSegment query_segment,
+    static typename Visitor::ResultType TraverseWithQuery(const NodeHolder& node, IndexSegment query_segment,
                                                           Visitor visitor) {
         if (!node || !IndexSegment::AreIntersected(node->segment, query_segment)) {
             return visitor.ProcessEmpty(node);
@@ -94,15 +89,15 @@ private:
     public:
         using ResultType = Data;
 
-        Data ProcessEmpty(const NodeHolder &) const {
+        Data ProcessEmpty(const NodeHolder&) const {
             return {};
         }
 
-        Data ProcessFull(const NodeHolder &node) const {
+        Data ProcessFull(const NodeHolder& node) const {
             return node->data;
         }
 
-        Data ProcessPartial(const NodeHolder &, IndexSegment, const Data &left_result, const Data &right_result) const {
+        Data ProcessPartial(const NodeHolder&, IndexSegment, const Data& left_result, const Data& right_result) const {
             return left_result + right_result;
         }
     };
@@ -111,28 +106,28 @@ private:
     public:
         using ResultType = void;
 
-        explicit AddBulkOperationVisitor(const BulkOperation &operation)
+        explicit AddBulkOperationVisitor(const BulkOperation& operation)
             : operation_(operation) {
         }
 
-        void ProcessEmpty(const NodeHolder &) const {
+        void ProcessEmpty(const NodeHolder&) const {
         }
 
-        void ProcessFull(const NodeHolder &node) const {
+        void ProcessFull(const NodeHolder& node) const {
             node->postponed_bulk_operation.CombineWith(operation_);
             node->data = operation_.Collapse(node->data, node->segment);
         }
 
-        void ProcessPartial(const NodeHolder &node, IndexSegment) const {
+        void ProcessPartial(const NodeHolder& node, IndexSegment) const {
             node->data = (node->left ? node->left->data : Data()) + (node->right ? node->right->data : Data());
         }
 
     private:
-        const BulkOperation &operation_;
+        const BulkOperation& operation_;
     };
 
-    static void PropagateBulkOperation(const NodeHolder &node) {
-        for (auto *child_ptr : {node->left.get(), node->right.get()}) {
+    static void PropagateBulkOperation(const NodeHolder& node) {
+        for (auto* child_ptr : {node->left.get(), node->right.get()}) {
             if (child_ptr) {
                 child_ptr->postponed_bulk_operation.CombineWith(node->postponed_bulk_operation);
                 child_ptr->data = node->postponed_bulk_operation.Collapse(child_ptr->data, child_ptr->segment);

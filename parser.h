@@ -1,29 +1,4 @@
 #pragma once
-
-/*
- * Программа должна обрабатывать такие запросы:
- * 1) ComputeIncome <дата начала> <дата конца> — вычислить чистую прибыль за данный диапазон дат и вывести результат в cout.
- * 2) Earn <дата начала> <дата конца> <прибыль> — учесть, что в этот период равномерно по дням была заработана указанная сумма.
- * Прибыль — произвольное положительное число double.
- * 3) PayTax <дата начала> <дата конца> <ставка> — заплатить налог <ставка> в каждый день указанного диапазона. Ставка — целое число от 0 до 100.
- * Это означает простое умножение всей прибыли в диапазоне на (1 - <ставка>/100)), независимо от того, отдавался ли уже налог за какой-либо из указанных дней.
- * Прибыль за эти дни, которая обнаружится позже, налогами из прошлого не облагается.
- * 4) Spend <дата начала> <дата конца> <расход> — учесть, что в этот период равномерно по дням была потрачена указанная сумма.
- *
- * Обе даты — начальная и конечная — включаются в диапазон.
- * В первой строке записано количество запросов, а затем на отдельных строках сами запросы.
- *
- * Формат выходных данных
- * Каждый запрос типа ComputeIncome выводит на отдельной строке действительное число — чистую прибыль за указанный период.
- *
- * Ограничения на входные данные:
- * - Все даты находятся в диапазоне от 2000-01-01 до 2099-12-31.
- * - Количество запросов невелико.
- * - Количество дней в одном запросе — любое в пределах указанного диапазона.
- * - Дата конца периода не раньше даты начала периода.
- * - Все даты корректны.
- */
-
 #include "budget_manager.h"
 #include "date.h"
 
@@ -37,7 +12,7 @@
 #include <vector>
 
 struct ReadResult {
-    void Print(std::ostream &out) {
+    void Print(std::ostream& out) {
         out << total_income << std::endl;
     }
 
@@ -70,7 +45,8 @@ public:
     virtual ~Query() = default;
 
     Query(Date from, Date to)
-        : from_(from), to_(to) {
+        : from_(from)
+        , to_(to) {
     }
 
     Date GetFrom() const {
@@ -81,7 +57,7 @@ public:
         return to_;
     }
 
-    virtual void ProcessAndPrint(BudgetManager &budget, std::ostream &out) const = 0;
+    virtual void ProcessAndPrint(BudgetManager& budget, std::ostream& out) const = 0;
 
 private:
     Date from_, to_;
@@ -91,9 +67,9 @@ class ComputeQuery : public Query {
 public:
     using Query::Query;
     virtual ~ComputeQuery() = default;
-    virtual ReadResult Process(const BudgetManager &budget) const = 0;
+    virtual ReadResult Process(const BudgetManager& budget) const = 0;
 
-    void ProcessAndPrint(BudgetManager &budget, std::ostream &out) const override {
+    void ProcessAndPrint(BudgetManager& budget, std::ostream& out) const override {
         Process(budget).Print(out);
     }
 };
@@ -102,9 +78,9 @@ class ModifyQuery : public Query {
 public:
     using Query::Query;
     virtual ~ModifyQuery() = default;
-    virtual void Process(BudgetManager &budget) const = 0;
+    virtual void Process(BudgetManager& budget) const = 0;
 
-    void ProcessAndPrint(BudgetManager &budget, std::ostream &) const override {
+    void ProcessAndPrint(BudgetManager& budget, std::ostream&) const override {
         Process(budget);
     }
 };
@@ -114,22 +90,22 @@ public:
     virtual std::unique_ptr<Query> Construct(std::string_view config) const = 0;
     virtual ~QueryFactory() = default;
 
-    static const QueryFactory &GetFactory(std::string_view id);
+    static const QueryFactory& GetFactory(std::string_view id);
 };
 
 inline std::unique_ptr<Query> ParseQuery(std::string_view line) {
     auto [command, pconfig] = SplitFirst(line, ' ');
 
-    const auto &factory = QueryFactory::GetFactory(command);
+    const auto& factory = QueryFactory::GetFactory(command);
     return factory.Construct(pconfig.value_or(std::string_view{}));
 }
 
-inline std::vector<std::unique_ptr<Query>> ReadQueries(std::istream &input) {
+inline std::vector<std::unique_ptr<Query>> ReadQueries(std::istream& input) {
     std::vector<std::unique_ptr<Query>> result;
     std::string line;
     std::getline(input, line);
     const int query_count = std::stoi(line);
-    result.reserve(static_cast<size_t>(query_count));
+    result.reserve(query_count);
 
     for (int i = 0; i < query_count; ++i) {
         std::getline(input, line);

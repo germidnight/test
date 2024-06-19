@@ -4,7 +4,7 @@
 
 using namespace std;
 
-void ParseAndProcessQuery(BudgetManager &manager, string_view line) {
+void ParseAndProcessQuery(BudgetManager& manager, string_view line) {
     auto query = ParseQuery(line);
 
     if (!query) {
@@ -14,7 +14,7 @@ void ParseAndProcessQuery(BudgetManager &manager, string_view line) {
     query->ProcessAndPrint(manager, cout);
 }
 
-int ReadNumberOnLine(istream &input) {
+int ReadNumberOnLine(istream& input) {
     std::string line;
     std::getline(input, line);
     return std::stoi(line);

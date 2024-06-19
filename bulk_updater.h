@@ -3,27 +3,28 @@
 #include "entities.h"
 #include "summing_segment_tree.h"
 
-#include <cmath>
 #include <cstdint>
 
-struct Day {
+struct DayState {
+public:
     double ComputeIncome() {
-        return income - spend;
+        return (earned - spent);
     }
-    double income = 0.;
-    double spend = 0.;
+public:
+    double earned = 0.;
+    double spent = 0.;
 };
 
-inline Day operator+(const Day& left, const Day& right) {
-    return {left.income + right.income, left.spend + right.spend};
+inline DayState operator+(const DayState& first, const DayState& second) {
+    return {first.earned + second.earned, first.spent + second.spent};
 }
 
-inline Day operator*(const Day& left, double val) {
-    return {left.income * val, left.spend};
+inline DayState operator*(const DayState& first, double factor) {
+    return {first.earned * factor, first.spent};
 }
 
 struct BulkMoneyAdder {
-    Day delta = {};
+    DayState delta = {};
 };
 
 struct BulkTaxApplier {
@@ -34,26 +35,23 @@ class BulkLinearUpdater {
 public:
     BulkLinearUpdater() = default;
 
-    BulkLinearUpdater(const BulkMoneyAdder &add)
+    BulkLinearUpdater(const BulkMoneyAdder& add)
         : add_(add) {
     }
 
-    BulkLinearUpdater(const BulkTaxApplier &tax)
+    BulkLinearUpdater(const BulkTaxApplier& tax)
         : tax_(tax) {
     }
-    /*CombineWith меняет поле BulkOperation, то есть данные внутри самой операции (BulkMoneyAdder и BulkTaxApplier),
-     * реализуя механизм «проталкивания» вниз
-     * 1) переумножить проценты;
-     * 2) учесть траты (просто сложить);
-     * 3) учесть зачисления (зачисление умножить на процент и прибавить другое зачисление)*/
-    void CombineWith(const BulkLinearUpdater &other) {
+
+    void CombineWith(const BulkLinearUpdater& other) {
+        /*tax_.count += other.tax_.count;
+        add_.delta = add_.delta * other.tax_.ComputeFactor() + other.add_.delta;*/
         tax_.factor *= other.tax_.factor;
-        add_.delta = add_.delta * tax_.factor + other.add_.delta;
+        add_.delta = add_.delta * other.tax_.factor + other.add_.delta;
     }
-    /*Collapse меняет поле Data путем использования подготовленных данных внутри операции.
-     * Вызов Collapse - выход из рекурсии.
-     * Складывает все сегменты вместе*/
-    Day Collapse(Day origin, IndexSegment segment) const {
+
+    DayState Collapse(DayState origin, IndexSegment segment) const {
+        //return origin * tax_.ComputeFactor() + add_.delta * static_cast<double>(segment.length());
         return origin * tax_.factor + add_.delta * static_cast<double>(segment.length());
     }
 
