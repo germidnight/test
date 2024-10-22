@@ -8,10 +8,10 @@
 #include "json_loader.h"
 #include "request_handler.h"
 
-#include <boost/log/core.hpp>
-#include <boost/log/trivial.hpp>
 #include <boost/log/utility/setup/common_attributes.hpp>
 #include <boost/log/utility/setup/console.hpp>
+#include <boost/log/core.hpp>
+#include <boost/log/trivial.hpp>
 #include <boost/date_time/posix_time/posix_time.hpp>
 
 #include <boost/asio/ip/tcp.hpp>

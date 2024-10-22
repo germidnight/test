@@ -1,5 +1,4 @@
 #pragma once
-#include "logging_handler.h"
 #include "sdk.h"
 
 // boost.beast будет использовать std::string_view вместо boost::string_view
@@ -127,7 +126,7 @@ public:
         acceptor_.listen(net::socket_base::max_listen_connections);
 
         // Сервер запущен
-        logging_handler::LogStartServer(endpoint);
+//        logging_handler::LogStartServer(endpoint);
     }
 
     void Run() {
