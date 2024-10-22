@@ -27,6 +27,8 @@ add_executable(game_server
 	src/json_loader.cpp
 	src/request_handler.cpp
 	src/request_handler.h
+	src/logging_handler.cpp
+	src/logging_handler.h
 )
 target_include_directories(game_server PRIVATE CONAN_PKG::boost)
 target_link_libraries(game_server PRIVATE Threads::Threads)
