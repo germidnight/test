@@ -32,4 +32,4 @@ add_executable(game_server
 )
 target_include_directories(game_server PRIVATE CONAN_PKG::boost)
 target_link_libraries(game_server PRIVATE Threads::Threads
-					CONAN_PKG::boost)
+						CONAN_PKG::boost)

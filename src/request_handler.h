@@ -1,6 +1,10 @@
 #pragma once
-#include "http_server.h"
 #include "model.h"
+
+#define BOOST_BEAST_USE_STD_STRING_VIEW
+
+#include <boost/beast/core.hpp>
+#include <boost/beast/http.hpp>
 
 #include <algorithm>
 #include <filesystem>

@@ -1,5 +1,6 @@
 #pragma once
 #include "sdk.h"
+#include "logging_handler.h"
 
 // boost.beast будет использовать std::string_view вместо boost::string_view
 #define BOOST_BEAST_USE_STD_STRING_VIEW
@@ -20,7 +21,7 @@ namespace http = beast::http;
 namespace sys = boost::system;
 using namespace std::literals;
 
-void ReportError(beast::error_code ec, std::string_view what);
+//void ReportError(beast::error_code ec, std::string_view what);
 
 // ---------------------------------------- SessionBase ----------------------------------------
 class SessionBase {
@@ -126,7 +127,7 @@ public:
         acceptor_.listen(net::socket_base::max_listen_connections);
 
         // Сервер запущен
-//        logging_handler::LogStartServer(endpoint);
+        logging_handler::LogStartServer(endpoint);
     }
 
     void Run() {
@@ -157,7 +158,8 @@ private:
     // Метод socket::async_accept создаст сокет и передаст его в OnAccept
     void OnAccept(beast::error_code ec, tcp::socket socket) {
         if (ec) {
-            return ReportError(ec, "accept"sv);
+            //return ReportError(ec, "accept"sv);
+            logging_handler::LogNetworkError(ec.value(), ec.message(), "accept"sv);
         }
         // Асинхронно обрабатываем сессию
         AsyncRunSession(std::move(socket));

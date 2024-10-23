@@ -1,5 +1,5 @@
 #include "sdk.h"
-//
+
 #include <boost/asio/signal_set.hpp>
 #include <boost/asio/io_context.hpp>
 #include <iostream>
@@ -7,6 +7,7 @@
 
 #include "json_loader.h"
 #include "logging_handler.h"
+#include "http_server.h"
 
 using namespace std::literals;
 namespace net = boost::asio;

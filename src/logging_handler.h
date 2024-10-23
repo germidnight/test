@@ -5,16 +5,19 @@
  * который будет вызывать методы исходного обработчика.
  * При этом он добавляет дополнительную функциональность в виде логирования.
  */
+#define BOOST_BEAST_USE_STD_STRING_VIEW
+
 #include "json_loader.h"
 #include "request_handler.h"
 
-#include <boost/log/utility/setup/common_attributes.hpp>
-#include <boost/log/utility/setup/console.hpp>
+#include <boost/asio/ip/tcp.hpp>
+#include <boost/beast/core.hpp>
+#include <boost/beast/http.hpp>
+#include <boost/date_time/posix_time/posix_time.hpp>
 #include <boost/log/core.hpp>
 #include <boost/log/trivial.hpp>
-#include <boost/date_time/posix_time/posix_time.hpp>
-
-#include <boost/asio/ip/tcp.hpp>
+#include <boost/log/utility/setup/common_attributes.hpp>
+#include <boost/log/utility/setup/console.hpp>
 
 #include <string>
 #include <string_view>
@@ -31,6 +34,9 @@ const std::string GetTimeStampString();
 
 void LogStartServer(const net::ip::tcp::endpoint &endpoint);
 void LogStopServer(const int return_code, const std::string exception_what);
+void LogNetworkError(const int error_code,
+                     std::string_view error_text,
+                     std::string_view where);
 
 void LogFormatter(logging::record_view const &rec, logging::formatting_ostream &strm);
 

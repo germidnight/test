@@ -32,4 +32,13 @@ namespace logging_handler {
                                                     return_code,
                                                     exception_what);
     }
+
+    void LogNetworkError(const int error_code,
+                         const std::string error_text,
+                         const std::string where) {
+        BOOST_LOG_TRIVIAL(info) << json_loader::GetLogError(GetTimeStampString(),
+                                                    error_code,
+                                                    error_text,
+                                                    where);
+    }
 } // namespace logging_handler
