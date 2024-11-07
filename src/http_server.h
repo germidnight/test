@@ -159,7 +159,7 @@ private:
     void OnAccept(beast::error_code ec, tcp::socket socket) {
         if (ec) {
             //return ReportError(ec, "accept"sv);
-            logging_handler::LogNetworkError(ec.value(), ec.message(), "accept"sv);
+	    logging_handler::LogNetworkError(ec.value(), ec.message(), "accept"sv);
         }
         // Асинхронно обрабатываем сессию
         AsyncRunSession(std::move(socket));
@@ -180,7 +180,7 @@ private:
 
 /* Для запуска сервера вспомогательная функция ServeHttp. */
 template <typename RequestHandler>
-void ServeHttp(net::io_context& ioc, const tcp::endpoint& endpoint, RequestHandler&& handler) {
+void ServeHttp(net::io_context& ioc, tcp::endpoint endpoint, RequestHandler&& handler) {
     /* При помощи decay_t исключим ссылки из типа RequestHandler,
      * чтобы Listener хранил RequestHandler по значению */
     using MyListener = Listener<std::decay_t<RequestHandler>>;

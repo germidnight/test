@@ -1,8 +1,10 @@
 #pragma once
-#include "model.h"
+#include "api_handler.h"
 
 #define BOOST_BEAST_USE_STD_STRING_VIEW
 
+#include <boost/asio/io_context.hpp>
+#include <boost/asio/strand.hpp>
 #include <boost/beast/core.hpp>
 #include <boost/beast/http.hpp>
 
@@ -12,6 +14,7 @@
 #include <map>
 #include <optional>
 #include <string_view>
+#include <utility>
 #include <variant>
 
 namespace http_handler {
@@ -19,33 +22,13 @@ namespace http_handler {
 namespace beast = boost::beast;
 namespace http = beast::http;
 
-// Запрос, тело которого представлено в виде строки
-using StringRequest = http::request<http::string_body>;
-// Ответ, тело которого представлено в виде строки
-using StringResponse = http::response<http::string_body>;
-// Ответ, тело которого представлено в виде файла
-using FileResponse = http::response<http::file_body>;
-
 using namespace std::literals;
 
-struct ContentType {
-    ContentType() = delete;
-    constexpr static std::string_view BINARY    = "application/octet-stream"sv;
-    constexpr static std::string_view JSON      = "application/json"sv;
-    constexpr static std::string_view XML       = "application/xml"sv;
-    constexpr static std::string_view MP3       = "audio/mpeg"sv;
-    constexpr static std::string_view BMP       = "image/bmp"sv;
-    constexpr static std::string_view GIF       = "image/gif"sv;
-    constexpr static std::string_view JPG       = "image/jpeg"sv;
-    constexpr static std::string_view SVG       = "image/svg+xml"sv;
-    constexpr static std::string_view PNG       = "image/png"sv;
-    constexpr static std::string_view TIFF      = "image/tiff"sv;
-    constexpr static std::string_view ICO       = "image/vnd.microsoft.icon"sv;
-    constexpr static std::string_view CSS       = "text/css"sv;
-    constexpr static std::string_view HTML      = "text/html"sv;
-    constexpr static std::string_view JS        = "text/javascript"sv;
-    constexpr static std::string_view PLAIN     = "text/plain"sv;
-};
+using FileResponse = http::response<http::file_body>;
+using EmptyResponse = http::response<http::empty_body>;
+using SomeResponse = std::variant<EmptyResponse, StringResponse, FileResponse>;
+
+struct ContentType; // В файле api_handler.h
 
 struct FileExt {
     const std::map<std::string, std::string_view> extensions = {
@@ -60,51 +43,93 @@ struct FileExt {
         {"mp3", ContentType::MP3}};
 };
 
-class RequestHandler {
+std::string_view GetContentType(std::string file_extension);
+std::string DecodeURI(const std::string_view uri_string);
+int isSafePath(const std::filesystem::path &norm_root, const std::filesystem::path &child);
+
+class RequestHandler : public std::enable_shared_from_this<RequestHandler> {
 public:
-    explicit RequestHandler(model::Game& game, std::filesystem::path root_dir)
-        : game_{game}, root_path_(root_dir) {}
+    using Strand = boost::asio::strand<boost::asio::io_context::executor_type>;
+
+    explicit RequestHandler(players::Application& app,
+                            std::filesystem::path root_dir,
+                            Strand api_strand)
+                : api_handler_{std::make_unique<APIHandler>(app)}
+                , root_path_(root_dir)
+                , api_strand_(api_strand) {}
 
     RequestHandler(const RequestHandler&) = delete;
     RequestHandler& operator=(const RequestHandler&) = delete;
 
-    /* Эта версия обработчика нужна при упразднении декоратора логирования
-    template <typename Body, typename Allocator, typename Send>
-    void operator()(http::request<Body, http::basic_fields<Allocator>>&& req, Send&& send) {
-        // Обработать запрос request и отправить ответ, используя send
-        auto answer = HandleRequest(std::forward<StringRequest>(req));
-        if (std::holds_alternative<StringResponse>(answer)) {
-            send(std::get<StringResponse>(answer));
-        } else if (std::holds_alternative<FileResponse>(answer)) {
-            send(std::get<FileResponse>(answer));
+    /* Обработка запроса
+     * Функция принимает параметры:
+     * - rec - запрос серверу (тело запроса)
+     * - send - функция для отправки готового ответа клиенту
+     * - log_function - функция для создания записи в лог-файл */
+    template <typename Body, typename Allocator, typename Send, typename LogFunc>
+    void operator()(http::request<Body, http::basic_fields<Allocator>> &&req,
+                    Send &&send,
+                    LogFunc&& log_function) {
+        const std::string api_base_str = "/api/";
+        unsigned int version = req.version();
+        bool keep_alive = req.keep_alive();
+
+        try {
+            std::string req_str{DecodeURI(req.target())};
+
+            if (req_str.starts_with(api_base_str)) {
+                // запрашивается REST API
+                auto handle = [self = shared_from_this(), send, log_function,
+                               req = std::forward<decltype(req)>(req), req_str, version, keep_alive]() {
+                    try {
+                        // лямбда-функция будет выполняться внутри strand
+                        StringResponse answer = self->api_handler_->ReturnAPIResponse(std::forward<decltype(req)>(req),
+                                                                                      std::move(req_str));
+                        log_function(answer.result_int(), std::string(answer[http::field::content_type]));
+                        send(std::move(answer));
+                    } catch (...) {
+                        StringResponse answer = MakeStringResponse(http::status::internal_server_error,
+                                                                   "Internal server error in lambda of HandleRequest"sv,
+                                                                   version, keep_alive, ContentType::JSON);
+                        log_function(answer.result_int(), std::string(answer[http::field::content_type]));
+                        send(answer);
+                    }
+                };
+                return boost::asio::dispatch(api_strand_, handle);
+            } else {
+                // Запрашивается файл
+                std::filesystem::path path{req_str};
+                path = path.lexically_normal();
+                auto answer = ReturnFile(path, version, keep_alive);
+                if (std::holds_alternative<StringResponse>(answer)) {
+                    StringResponse response(std::move(std::get<StringResponse>(answer)));
+                    log_function(response.result_int(), std::string(response[http::field::content_type]));
+                    send(std::move(response));
+                } else if (std::holds_alternative<FileResponse>(answer)) {
+                    FileResponse response(std::move(std::get<FileResponse>(answer)));
+                    log_function(response.result_int(), std::string(response[http::field::content_type]));
+                    send(std::move(response));
+                } else if (std::holds_alternative<EmptyResponse>(answer)) {
+                    EmptyResponse response(std::move(std::get<EmptyResponse>(answer)));
+                    log_function(response.result_int(), std::string(response[http::field::content_type]));
+                    send(std::move(response));
+                }
+            }
+        } catch (...) {
+            StringResponse answer = MakeStringResponse(http::status::internal_server_error,
+                                                       "Internal server error in HandleRequest"sv,
+                                                       version, keep_alive, ContentType::JSON);
+            log_function(answer.result_int(), std::string(answer[http::field::content_type]));
+            send(answer);
         }
-    }*/
-    // При использовании декоратора часть функционала ушла в logger
-    template <typename Body, typename Allocator>
-    std::variant<StringResponse, FileResponse> operator()(http::request<Body, http::basic_fields<Allocator>> &&req) {
-        return HandleRequest(std::forward<StringRequest>(req));
     }
 
 private:
-    std::variant<StringResponse, FileResponse> HandleRequest(StringRequest &&req);
+    SomeResponse ReturnFile(std::filesystem::path file_path, unsigned int version, bool keep_alive);
 
-    StringResponse ReturnAPIResponse(std::string_view req_str, unsigned int version, bool keep_alive);
-    std::variant<StringResponse, FileResponse> ReturnFile(std::filesystem::path file_path,
-                                                        unsigned int version, bool keep_alive);
-
-    model::Game& game_;
+    std::unique_ptr<APIHandler> api_handler_;
     std::filesystem::path root_path_;
+    Strand api_strand_;
 };
-
-StringResponse MakeStringResponse(http::status status,
-                                  std::string_view body,
-                                  unsigned http_version,
-                                  bool keep_alive,
-                                  std::string_view content_type,
-                                  size_t length);
-
-std::string_view GetContentType(std::string file_extension);
-std::string DecodeURI(const std::string_view uri_string);
-int isSafePath(const std::filesystem::path& norm_root, const std::filesystem::path& child);
 
 }  // namespace http_handler

@@ -2,6 +2,7 @@
 
 #include <fstream>
 #include <memory>
+#include <utility>
 
 namespace json_loader {
 
@@ -12,6 +13,8 @@ model::Game LoadGame(const std::filesystem::path& json_path) {
     const std::string roads_str = "roads";
     const std::string buildings_str = "buildings";
     const std::string offices_str   = "offices";
+    const std::string defaultdogspeed_str = "defaultDogSpeed";
+    const std::string dogspeed_str = "dogSpeed";
 
     // Загрузить содержимое файла json_path, в виде строки
     std::ifstream json_file(json_path, std::ios::in);
@@ -30,11 +33,15 @@ model::Game LoadGame(const std::filesystem::path& json_path) {
      *  2.2) заполнить карту объектами: дорогами, офисами, зданиями
      *  2.3) добавить карту в игру */
     model::Game game;
+
+    double default_dog_speed = ReadOptionalDoubleValue(config_data, defaultdogspeed_str, 1.);
     auto maps_value = config_data.at(maps_str).as_array();
 
     for (auto it_map = maps_value.begin(); it_map != maps_value.end(); ++it_map) {
+        double dog_speed = ReadOptionalDoubleValue(*it_map, dogspeed_str, default_dog_speed);
         model::Map map(model::Map::Id(std::string{it_map->at(id_str).as_string()}),
-                                    std::string{it_map->at(name_str).as_string()});
+                                    std::string{it_map->at(name_str).as_string()},
+                                    dog_speed);
 
         auto road_value = it_map->at(roads_str).as_array();
         LoadAndAddRoads(road_value, map);
@@ -51,6 +58,8 @@ model::Game LoadGame(const std::filesystem::path& json_path) {
     return game;
 }
 
+/* Координаты дорог перед внесением упорядочиваем:
+ * начальная координата дороги должна всегда быть меньше конечной */
 void LoadAndAddRoads(const boost::json::array& road_value, model::Map& map) {
     const std::string road_x0_str = "x0";
     const std::string road_y0_str = "y0";
@@ -60,10 +69,9 @@ void LoadAndAddRoads(const boost::json::array& road_value, model::Map& map) {
     for (auto it_road = road_value.begin(); it_road != road_value.end(); ++it_road) {
         model::Point start_road = {static_cast<int>(it_road->at(road_x0_str).as_int64()),
                                    static_cast<int>(it_road->at(road_y0_str).as_int64())};
-
         try {
             map.AddRoad({model::Road::HORIZONTAL, start_road, static_cast<int>(it_road->at(road_x1_str).as_int64())});
-        } catch (const std::out_of_range& e) {
+        } catch (const std::out_of_range&) {
             map.AddRoad({model::Road::VERTICAL, start_road, static_cast<int>(it_road->at(road_y1_str).as_int64())});
         }
     }
@@ -102,13 +110,13 @@ void LoadAndAddOffices(const boost::json::array& office_value, model::Map& map) 
     }
 }
 
-// Функции для формирования ответа (request_handler)
-std::string GetListOfMaps(const model::Game &game) {
+// Функции для формирования ответа (api_handler)
+std::string GetListOfMaps(const players::Application& app) {
     const std::string id_str = "id";
     const std::string name_str = "name";
 
     boost::json::array arr_json;
-    for (auto it = game.GetMaps().begin(); it != game.GetMaps().end(); ++it) {
+    for (auto it = app.GetMaps().begin(); it != app.GetMaps().end(); ++it) {
         boost::json::object temp_obj;
         temp_obj[id_str] = *(it->GetId());
         temp_obj[name_str] = it->GetName();
@@ -118,14 +126,14 @@ std::string GetListOfMaps(const model::Game &game) {
     return {boost::json::serialize(val_json)};
 }
 
-std::optional<std::string> GetMap(const model::Map::Id& map_id, const model::Game &game) {
+std::optional<std::string> GetMap(const model::Map::Id &map_id, const players::Application& app) {
     const std::string id_str = "id";
     const std::string name_str = "name";
     const std::string roads_str = "roads";
     const std::string buildings_str = "buildings";
     const std::string offices_str = "offices";
 
-    const model::Map* map_ptr = game.FindMap(map_id);
+    const model::Map* map_ptr = app.FindMap(map_id);
     if (map_ptr == nullptr) {
         return std::nullopt;
     }
@@ -200,18 +208,117 @@ boost::json::array GetOfficesArray(const model::Map &map) {
     return offices_arr;
 }
 
-std::string GetMapNotFoundString() {
+std::string GetPlayerAddedAnswer(std::string auth_token, size_t player_id) {
+    const std::string auth_token_str = "authToken";
+    const std::string player_id_str = "playerId";
+
     boost::json::object res_obj;
-    res_obj["code"] = "mapNotFound";
-    res_obj["message"] = "Map not found";
+    res_obj[auth_token_str] = auth_token;
+    res_obj[player_id_str] = player_id;
     boost::json::value val_json(res_obj);
     return {boost::json::serialize(val_json)};
 }
 
-std::string GetBadRequestString() {
+std::string GetSessionPlayers(const model::GameSession::Dogs &dogs) {
+    const std::string player_name_str = "name";
+
     boost::json::object res_obj;
-    res_obj["code"] = "badRequest";
-    res_obj["message"] = "Bad request";
+    for (const auto dog : dogs) {
+        boost::json::object player_obj;
+        player_obj[player_name_str] = dog->GetDogName(); /* Имя пса и пользователья совпадают (здесб выводится имя пользователя) */
+        res_obj[std::to_string(dog->GetDogId())] = player_obj;
+    }
+    boost::json::value val_json(res_obj);
+    return {boost::json::serialize(val_json)};
+}
+
+std::string MakeGameStateAnswer(std::vector<players::GameState> game_state) {
+    const std::string players_str   = "players";
+    const std::string pos_str       = "pos";
+    const std::string speed_str     = "speed";
+    const std::string dir_str       = "dir";
+
+    boost::json::object res_obj;
+    boost::json::object players_obj;
+    for (const auto& gs : game_state) {
+        boost::json::object dog_state_obj;
+        dog_state_obj[pos_str] = boost::json::array{gs.state.position.x, gs.state.position.y};
+        dog_state_obj[speed_str] = boost::json::array{gs.state.velocity.x, gs.state.velocity.y};
+        dog_state_obj[dir_str] = DogDirectionToString(gs.state.direction);
+        players_obj[std::to_string(gs.dog_id)] = dog_state_obj;
+    }
+    res_obj[players_str] = players_obj;
+    boost::json::value val_json(res_obj);
+    return {boost::json::serialize(val_json)};
+}
+
+std::string DogDirectionToString(model::Direction direction) {
+    switch (direction) {
+    case model::Direction::NORTH :
+        return "U";
+    case model::Direction::SOUTH :
+        return "D";
+    case model::Direction::EAST :
+        return "R";
+    case model::Direction::WEST :
+        return "L";
+    }
+    return "U";
+}
+
+// Разбор JSON запроса
+JoinGame LoadJSONJoinGame(std::string_view request_body) {
+    const std::string user_name_str = "userName";
+    const std::string map_id_str = "mapId";
+
+    boost::system::error_code ec;
+    auto join_data = boost::json::parse(std::string(request_body), ec).as_object();
+
+    if (ec) {
+        return JoinGame({}, {}, true);
+    }
+    JoinGame result;
+    if (join_data.count(user_name_str) > 0) {
+        result.user_name = join_data[user_name_str].as_string();
+    } else {
+        result.user_name = "";
+    }
+    if (join_data.count(map_id_str) > 0) {
+        result.map_id = join_data[map_id_str].as_string();
+    } else {
+        result.map_id = "";
+    }
+    return result;
+}
+
+std::optional<std::string> LoadActionMove(std::string_view request_body) {
+    const std::string move_str = "move";
+    try {
+        auto action_data = boost::json::parse(std::string(request_body)).as_object();
+        return std::string(action_data.at(move_str).as_string());
+    } catch (const boost::system::system_error &) {
+        return std::nullopt;
+    }
+}
+
+std::optional<double> LoadTimeDelta(std::string_view request_body) {
+    const std::string timedelta_str = "timeDelta";
+    try {
+        auto action_data = boost::json::parse(std::string(request_body)).as_object();
+        return static_cast<double>(action_data.at(timedelta_str).as_int64()) / 1000.;
+    } catch (...) {
+        return std::nullopt;
+    }
+}
+
+// Вывод сообщений об ошибках
+std::string MakeErrorString(std::string &&err_code, std::string &&err_text) {
+    const std::string err_code_str = "code";
+    const std::string err_msg_str = "message";
+
+    boost::json::object res_obj;
+    res_obj[err_code_str] = std::forward<std::string>(err_code);
+    res_obj[err_msg_str] = std::forward<std::string>(err_text);
     boost::json::value val_json(res_obj);
     return {boost::json::serialize(val_json)};
 }

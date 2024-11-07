@@ -1,5 +1,4 @@
 #include "request_handler.h"
-#include "json_loader.h"
 
 #include <optional>
 
@@ -7,84 +6,12 @@ namespace http_handler {
 
     using namespace std::literals;
 
-    // Создаёт StringResponse с заданными параметрами
-    StringResponse MakeStringResponse(http::status status,
-                                    std::string_view body,
-                                    unsigned http_version,
-                                    bool keep_alive,
-                                    std::string_view content_type,
-                                    size_t length = 0) {
-        StringResponse response(status, http_version);
-        response.set(http::field::content_type, content_type);
-        if (status == http::status::method_not_allowed) {
-            response.set("Allow"sv, "GET"sv);
-        }
-        response.body() = body;
-        if (length == 0) {
-            length = response.body().size();
-        }
-        response.content_length(length);
-        response.keep_alive(keep_alive);
-        return response;
-    }
-
-    // Обрабатываем запрос
-    std::variant<StringResponse, FileResponse> RequestHandler::HandleRequest(StringRequest &&req) {
-        const std::string api_base_str = "/api/";
-
-        if (req.method() == http::verb::get) {
-            std::string req_str{DecodeURI(req.target())};
-
-            if (req_str.starts_with(api_base_str)) {
-                // запрашивается REST API
-                return ReturnAPIResponse(req_str, req.version(), req.keep_alive());
-            } else {
-                // Запрашивается файл
-                std::filesystem::path path{req_str};
-                path = path.lexically_normal();
-
-                return ReturnFile(path, req.version(), req.keep_alive());
-            }
-        } else {
-            return MakeStringResponse(http::status::method_not_allowed, "Invalid method"sv,
-                            req.version(), req.keep_alive(), ContentType::JSON);
-        }
-    }
-
-    StringResponse RequestHandler::ReturnAPIResponse(std::string_view req_str, unsigned int version, bool keep_alive) {
-        const std::string command1_str = "/api/v1/maps";
-        const std::string command2_str = "/api/v1/maps/";
-        const size_t command2_symbols = command2_str.length();
-
-        const auto text_response = [version, keep_alive](http::status status, std::string_view text, size_t length = 0) {
-            return MakeStringResponse(status, text, version, keep_alive, ContentType::JSON, length);
-        };
-
-        if (req_str.starts_with(command2_str)) {
-            // запрашивается карта с заданным id
-            std::string_view map_id = req_str.substr(command2_symbols);
-            std::optional<std::string> map_result = json_loader::GetMap(model::Map::Id{std::string(map_id)}, game_);
-            if (map_result.has_value()) {
-                return text_response(http::status::ok, map_result.value());
-            } else {
-                // Запрашиваемый id карты не найден
-                return text_response(http::status::not_found, json_loader::GetMapNotFoundString());
-            }
-        } else if (req_str.compare(command1_str) == 0) {
-            // запрашивается список карт
-            return text_response(http::status::ok, json_loader::GetListOfMaps(game_));
-        } else {
-            // Неправильный запрос
-            return text_response(http::status::bad_request, json_loader::GetBadRequestString());
-        }
-    }
-
-    std::variant<StringResponse, FileResponse> RequestHandler::ReturnFile(std::filesystem::path file_path,
+    SomeResponse RequestHandler::ReturnFile(std::filesystem::path file_path,
                                                                         unsigned int version, bool keep_alive) {
         const auto error_response = [version, keep_alive](http::status status, std::string_view text) {
             return MakeStringResponse(status, text, version, keep_alive, ContentType::PLAIN);
         };
-        http::response<http::file_body> response(http::status::ok, version);
+        FileResponse response(http::status::ok, version);
         size_t file_size = 0;
 
         if (file_path.string().back() == '/') {

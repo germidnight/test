@@ -41,8 +41,9 @@ int main(int argc, const char* argv[]) {
         keywords::format = &(logging_handler::LogFormatter),
         keywords::auto_flush = true);
     try {
-        // 1. Загружаем карту из файла и построить модель игры
+        // 1. Загружаем карту из файла и строим модель игры
         model::Game game = json_loader::LoadGame(argv[1]);
+        players::Application app(game);
 
         // 2. Инициализируем io_context
         const unsigned num_threads = std::thread::hardware_concurrency();
@@ -64,27 +65,26 @@ int main(int argc, const char* argv[]) {
             throw std::runtime_error("Error opening given root directory: "
                                     + std::string(argv[1]) + " - " + ec.message());
         }
-        // 4.1. Создаём обработчик HTTP-запросов и связываем его с моделью игры
-        http_handler::RequestHandler handler{game, game_root_dir};
-        // 4.2. Создаём объект декоратора для логирования
-        logging_handler::LoggingRequestHandler logger_handler{handler};
+        // 4. strand для выполнения запросов к API
+        auto api_strand = net::make_strand(ioc);
 
-        // 5. Запустить обработчик HTTP-запросов, делегируя их обработчику запросов
+        // 5.1. Создаём обработчик HTTP-запросов в куче, управляемый shared_ptr и связываем его с моделью игры
+        auto handler = std::make_shared<http_handler::RequestHandler>(app, game_root_dir, api_strand);
+        // 5.2. Создаём объект декоратора для логирования
+        logging_handler::LoggingRequestHandler logger_handler(std::move(handler));
+
+        // 6. Запустить обработчик HTTP-запросов, делегируя их обработчику запросов
         const auto address = net::ip::make_address("0.0.0.0");
         constexpr net::ip::port_type port = 8080;
-        http_server::ServeHttp(ioc, {address, port}, [&logger_handler](auto&& req, auto&& send,
-                    const auto& client_endpoint) {
-            logger_handler(std::forward<decltype(req)>(req), std::forward<decltype(send)>(send), client_endpoint);
-        });
+        http_server::ServeHttp(ioc, {address, port}, logger_handler);
 
-        // 6. Запускаем обработку асинхронных операций
+        // 7. Запускаем обработку асинхронных операций
         RunWorkers(std::max(1u, num_threads), [&ioc] {
             ioc.run();
         });
 
         logging_handler::LogStopServer(EXIT_SUCCESS, "");
     } catch (const std::exception& ex) {
-        //std::cerr << ex.what() << std::endl;
         logging_handler::LogStopServer(EXIT_FAILURE, ex.what());
         return EXIT_FAILURE;
     }

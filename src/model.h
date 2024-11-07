@@ -1,9 +1,11 @@
 #pragma once
+#include <limits>
 #include <string>
 #include <unordered_map>
 #include <vector>
 
 #include "tagged.h"
+#include "game_session.h"
 
 namespace model {
 
@@ -120,9 +122,10 @@ public:
     using Buildings = std::vector<Building>;
     using Offices = std::vector<Office>;
 
-    Map(Id id, std::string name) noexcept
+    Map(Id id, std::string name, double speed = 1.) noexcept
         : id_(std::move(id))
-        , name_(std::move(name)) {
+        , name_(std::move(name))
+        , speed_(speed) {
     }
 
     const Id& GetId() const noexcept {
@@ -145,9 +148,11 @@ public:
         return offices_;
     }
 
-    void AddRoad(const Road& road) {
-        roads_.emplace_back(road);
+    double GetSpeed() const noexcept {
+        return speed_;
     }
+
+    void AddRoad(const Road& road);
 
     void AddBuilding(const Building& building) {
         buildings_.emplace_back(building);
@@ -155,21 +160,34 @@ public:
 
     void AddOffice(Office office);
 
+    Position GetRandomPositionOnRoads() const;
+    Position GetTestPositionOnRoads() const noexcept;
+
+    DogState MoveDog(const Dog *dog, double time);
+
 private:
     using OfficeIdToIndex = std::unordered_map<Office::Id, size_t, util::TaggedHasher<Office::Id>>;
+    std::vector<size_t> GetRoadByPosition(const Position& pos); // возвращает массив индексов дорог в массиве
 
     Id id_;
     std::string name_;
+    double speed_ = 1.;
+
     Roads roads_;
     Buildings buildings_;
 
     OfficeIdToIndex warehouse_id_to_index_;
     Offices offices_;
+    static constexpr double HALF_ROAD_WIDE = 0.4;
+    Roads normal_roads_; /* массив дорог в котором координаты начала дороги всегда меньше координат конца */
 };
 
 class Game {
 public:
+    static constexpr size_t MAX_DOGS_ON_MAP = std::numeric_limits<size_t>::max();
+
     using Maps = std::vector<Map>;
+    using Sessions = std::vector<GameSession>;
 
     void AddMap(Map map);
 
@@ -184,12 +202,16 @@ public:
         return nullptr;
     }
 
+    GameSession* PlacePlayerOnMap(const Map::Id &map_id);
+
 private:
     using MapIdHasher = util::TaggedHasher<Map::Id>;
     using MapIdToIndex = std::unordered_map<Map::Id, size_t, MapIdHasher>;
 
-    std::vector<Map> maps_;
+    Maps maps_;
     MapIdToIndex map_id_to_index_;
+
+    std::vector<Sessions> sessions_; /* Индексы соответствуют индексам карт в maps_ */
 };
 
 }  // namespace model

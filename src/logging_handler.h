@@ -35,8 +35,8 @@ const std::string GetTimeStampString();
 void LogStartServer(const net::ip::tcp::endpoint &endpoint);
 void LogStopServer(const int return_code, const std::string exception_what);
 void LogNetworkError(const int error_code,
-                     std::string_view error_text,
-                     std::string_view where);
+                     const std::string_view error_text,
+                     const std::string_view where);
 
 void LogFormatter(logging::record_view const &rec, logging::formatting_ostream &strm);
 
@@ -59,37 +59,30 @@ class LoggingRequestHandler {
     }
 
 public:
-    explicit LoggingRequestHandler(MainRequestHandler &handler) : decorated_(handler) {}
-    LoggingRequestHandler(const MainRequestHandler &) = delete;
-    LoggingRequestHandler &operator=(const MainRequestHandler &) = delete;
+    explicit LoggingRequestHandler(std::shared_ptr<MainRequestHandler> handler) noexcept
+				    : decorated_(std::move(handler)) {}
 
     template <typename Body, typename Allocator, typename Send>
     void operator()(http::request<Body, http::basic_fields<Allocator>> &&req, Send &&send,
                     const net::ip::tcp::endpoint &client_endpoint) {
         using namespace boost::posix_time;
 
-        std::string client_address = client_endpoint.address().to_string();
+        const std::string client_address = client_endpoint.address().to_string();
         LogRequest(req, client_address);
 
         ptime start_time = microsec_clock::universal_time();
-        std::variant<StringResponse, FileResponse> answer = decorated_(std::move(req));
-        time_duration duration = microsec_clock::universal_time() - start_time;
-
-        if (std::holds_alternative<StringResponse>(answer)) {
-            StringResponse response(std::move(std::get<StringResponse>(answer)));
-            LogResponse(client_address, static_cast<int>(duration.total_milliseconds()),
-                        response.result_int(), response[http::field::content_type]);
-            send(std::move(response));
-        } else if (std::holds_alternative<FileResponse>(answer)) {
-            FileResponse response(std::move(std::get<FileResponse>(answer)));
-            LogResponse(client_address, static_cast<int>(duration.total_milliseconds()),
-                        response.result_int(), response[http::field::content_type]);
-            send(std::move(response));
-        }
+        //std::variant<EmptyResponse, StringResponse, FileResponse> answer = decorated_(std::move(req));
+        (*decorated_)(std::forward<decltype(req)>(req),
+                   std::forward<decltype(send)>(send),
+                    [start_time, client_address](const unsigned int response_code, const std::string content_type) {
+                        time_duration duration = microsec_clock::universal_time() - start_time;
+                        LogResponse(client_address, static_cast<int>(duration.total_milliseconds()),
+                                    response_code, content_type);
+                    });
     }
 
 private:
-    MainRequestHandler &decorated_;
+    std::shared_ptr<MainRequestHandler> decorated_;
 };
 
 } // namespace logging_handler
