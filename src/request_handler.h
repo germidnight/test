@@ -1,5 +1,6 @@
 #pragma once
 #include "api_handler.h"
+#include "ticker.h"
 
 #define BOOST_BEAST_USE_STD_STRING_VIEW
 
@@ -56,7 +57,19 @@ public:
                             Strand api_strand)
                 : api_handler_{std::make_unique<APIHandler>(app)}
                 , root_path_(root_dir)
-                , api_strand_(api_strand) {}
+                , api_strand_(api_strand) {
+        if (!app.IsTestMode()) {
+            auto period = std::chrono::duration_cast<std::chrono::milliseconds>(
+                                std::chrono::duration<double, std::milli>{app.GetTickPeriod() * 1s});
+            ticker::Ticker time_sheduler{api_strand_, period,
+                                [&app](std::chrono::milliseconds delta) {
+                                    double tick_period = std::chrono::duration_cast<
+                                                std::chrono::duration<double, std::milli>>(delta) / 1s;
+                                    app.MoveDogs(tick_period);
+                                }};
+            time_sheduler.Start();
+        }
+    }
 
     RequestHandler(const RequestHandler&) = delete;
     RequestHandler& operator=(const RequestHandler&) = delete;
@@ -81,8 +94,7 @@ public:
                 // запрашивается REST API
                 auto handle = [self = shared_from_this(), send, log_function,
                                req = std::forward<decltype(req)>(req), req_str, version, keep_alive]() {
-                    try {
-                        // лямбда-функция будет выполняться внутри strand
+                    try { // лямбда-функция будет выполняться внутри strand
                         StringResponse answer = self->api_handler_->ReturnAPIResponse(std::forward<decltype(req)>(req),
                                                                                       std::move(req_str));
                         log_function(answer.result_int(), std::string(answer[http::field::content_type]));
