@@ -40,34 +40,34 @@
 - offsetX, offsetY — смещение изображения офиса относительно координат x и y. Эти параметры используются только на стороне клиента для визуализации офиса и на игровую логику не влияют.\
 Пример описания офиса:\
 >{\
->   &emsp"id": "o0",\
->   &emsp"x": 40,\
->   &emsp"y": 30,\
->   &emsp"offsetX": 5,\
->   &emsp"offsetY": 0\
+>   &emsp;"id": "o0",\
+>   &emsp;"x": 40,\
+>   &emsp;"y": 30,\
+>   &emsp;"offsetX": 5,\
+>   &emsp;"offsetY": 0\
 >}
 
 Пример конфигурационного файла:\
 
 >{\
->  &emsp"maps": [\
->    &emsp&emsp{\
->      &emsp&emsp&emsp"id": "map1",\
->      &emsp&emsp&emsp"name": "Map 1",\
->      &emsp&emsp&emsp"roads": [\
->        &emsp&emsp&emsp&emsp{ "x0": 0, "y0": 0, "x1": 40 },\
->        &emsp&emsp&emsp&emsp{ "x0": 40, "y0": 0, "y1": 30 },\
->        &emsp&emsp&emsp&emsp{ "x0": 40, "y0": 30, "x1": 0 },\
->        &emsp&emsp&emsp&emsp{ "x0": 0, "y0": 0, "y1": 30 }\
->      &emsp&emsp&emsp],\
->      &emsp&emsp&emsp"buildings": [\
->        &emsp&emsp&emsp&emsp{ "x": 5, "y": 5, "w": 30, "h": 20 }\
->      &emsp&emsp&emsp],\
->      &emsp&emsp&emsp"offices": [\
->        &emsp&emsp&emsp&emsp{ "id": "o0", "x": 40, "y": 30, "offsetX": 5, "offsetY": 0 }\
->      &emsp&emsp&emsp]\
->    &emsp&emsp}\
->  &emsp]\
+>  &emsp;"maps": [\
+>    &emsp;&emsp;{\
+>      &emsp;&emsp;&emsp;"id": "map1",\
+>      &emsp;&emsp;&emsp;"name": "Map 1",\
+>      &emsp;&emsp;&emsp;"roads": [\
+>        &emsp;&emsp;&emsp;&emsp;{ "x0": 0, "y0": 0, "x1": 40 },\
+>        &emsp;&emsp;&emsp;&emsp;{ "x0": 40, "y0": 0, "y1": 30 },\
+>        &emsp;&emsp;&emsp;&emsp;{ "x0": 40, "y0": 30, "x1": 0 },\
+>        &emsp;&emsp;&emsp;&emsp;{ "x0": 0, "y0": 0, "y1": 30 }\
+>      &emsp;&emsp;&emsp;],\
+>      &emsp;&emsp;&emsp;"buildings": [\
+>        &emsp;&emsp;&emsp;&emsp;{ "x": 5, "y": 5, "w": 30, "h": 20 }\
+>      &emsp;&emsp;&emsp;],\
+>      &emsp;&emsp;&emsp;"offices": [\
+>        &emsp;&emsp;&emsp;&emsp;{ "id": "o0", "x": 40, "y": 30, "offsetX": 5, "offsetY": 0 }\
+>      &emsp;&emsp;&emsp;]\
+>    &emsp;&emsp;}\
+>  &emsp;]\
 >}
 
 В конфигурационном файле содержится одна карта с названием “Map 1” и id, равным “map1”. Карта состоит из 4 отрезков дороги, 1 здания и 1 бюро находок.
