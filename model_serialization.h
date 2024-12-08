@@ -179,7 +179,10 @@ public:
     [[nodiscard]] players::Player Restore(const std::vector<model::Game::Sessions>& sessions) const {
         auto session_it = std::find_if(sessions.begin(), sessions.end(),
                             [this](const model::Game::Sessions& s) {
-                                return (*(s->GetMap()->GetId()) == this->map_id_string_);
+                                if (s != nullptr) {
+                                    return (*(s->GetMap()->GetId()) == this->map_id_string_);
+                                }
+                                return false;
                             });
         if (session_it == sessions.end()) {
             throw std::domain_error("Restore Player failed, no such session");
@@ -235,7 +238,7 @@ public:
 
     explicit PlayerTokensRepr(const players::PlayerTokens& tokens) {
         for (const auto& [token, player_ptr] : tokens.GetTokenToPlayers()) {
-            player_id_to_token_str_.emplace(player_ptr->GetId(), *token);
+            player_id_to_token_str_.emplace(player_ptr->GetId(), TokenRepr(token));
         }
     }
 
@@ -245,7 +248,8 @@ public:
             if (player_id_to_token_str_.count(player->GetId()) == 0) {
                 throw std::domain_error("Restore PlayerTokens failed, no such player_id in file");
             }
-            player_tokens.AddRestoredToken(players::Token{player_id_to_token_str_.at(player->GetId())}, player);
+            player_tokens.AddRestoredToken(player_id_to_token_str_.at(player->GetId()).Restore(),
+                                            player);
         }
         return player_tokens;
     }
@@ -256,7 +260,7 @@ public:
     }
 
 private:
-    std::unordered_map<size_t, std::string> player_id_to_token_str_;
+    std::unordered_map<size_t, TokenRepr> player_id_to_token_str_; // dog_id; token
 };
 
 class GameSessionRepr {

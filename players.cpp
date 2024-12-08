@@ -37,9 +37,9 @@ namespace detail {
         return nullptr;
     }
 
-    void PlayerTokens::AddRestoredToken(Token token, std::shared_ptr<Player> player) {
-        token_to_player_[token] = std::move(player);
+    void PlayerTokens::AddRestoredToken(const Token& token, std::shared_ptr<Player> player) {
         tokens_.emplace_back(std::make_shared<Token>(token));
+        token_to_player_[token] = std::move(player);
     }
 
     Players::Players(std::vector<std::shared_ptr<Player>> game_players, size_t next_dog_id)
@@ -243,15 +243,16 @@ std::stringstream SerializeState(const Application& app) {
     std::stringstream strm;
     OutputArchive output_archive{strm};
 
-    output_archive << serialization::PlayersRepr(app.players_);
-    output_archive << serialization::PlayerTokensRepr(app.player_tokens_);
     std::vector<serialization::GameSessionRepr> session_repr_vec;
-    for (const auto& session_ptr : app.game_.GetSessions()) {
+    for (const auto &session_ptr : app.game_.GetSessions()) {
         if (session_ptr != nullptr) {
             session_repr_vec.emplace_back(*session_ptr);
         }
     }
     output_archive << session_repr_vec;
+    output_archive << serialization::PlayersRepr(app.players_);
+    output_archive << serialization::PlayerTokensRepr(app.player_tokens_);
+
     return strm;
 }
 
@@ -276,12 +277,12 @@ void DeserializeState(std::stringstream& strm, Application& app) {
 }
 
 void AutosaveState(Application& app, std::string_view file_name) {
-    const std::string temporary_file = "temporary";
+    std::filesystem::path temporary_file = std::filesystem::path(file_name).parent_path() / "temporary";
 
     std::ofstream autosave_file(temporary_file, std::ios::trunc);
     autosave_file << players::SerializeState(app).str();
     autosave_file.close();
-    std::filesystem::rename({temporary_file}, {file_name});
+    std::filesystem::rename(temporary_file, {file_name});
 }
 
 } // namespace players

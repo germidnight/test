@@ -44,12 +44,8 @@ namespace players {
 
         PlayerTokens() = default;
 
-        PlayerTokens(std::vector<std::shared_ptr<Token>> tokens, TokenToPlayer token_to_player) noexcept
-                    : tokens_(std::move(tokens))
-                    , token_to_player_(std::move(token_to_player)) {}
-
         PlayerTokens(const PlayerTokens&) = delete;
-        PlayerTokens(PlayerTokens&& other) {
+        PlayerTokens(PlayerTokens&& other) noexcept {
             tokens_ = std::move(other.tokens_);
             other.tokens_ = {};
             token_to_player_ = std::move(other.token_to_player_);
@@ -57,7 +53,7 @@ namespace players {
         }
 
         PlayerTokens& operator=(const PlayerTokens&) = delete;
-        PlayerTokens& operator=(PlayerTokens&& other) {
+        PlayerTokens& operator=(PlayerTokens&& other) noexcept {
             if (this != &other) {
                 tokens_ = std::move(other.tokens_);
                 other.tokens_ = {};
@@ -83,7 +79,7 @@ namespace players {
             return token_to_player_;
         }
 
-        void AddRestoredToken(Token token, std::shared_ptr<Player> player);
+        void AddRestoredToken(const Token& token, std::shared_ptr<Player> player);
 
     private:
         std::random_device random_device_;
